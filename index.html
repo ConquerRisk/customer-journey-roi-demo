@@ -1,0 +1,450 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Customer journeys and the return on embedding AI — teaching demo</title>
+<style>
+:root{--bg:#f7f8fa;--panel:#fff;--ink:#131820;--dim:#5b6673;--line:#e2e6ec;--accent:#1d6fd6;--good:#137a4b;--warn:#a8520a;--bar:#cfe0f6}
+:root:not([data-theme=light]) [data-dark]{}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+header{background:#11182a;color:#fff;padding:18px 22px}
+header b{letter-spacing:.2px}
+header .sub{color:#b8c6dc;font-size:13.5px;margin-top:4px}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+.grid{display:grid;grid-template-columns:1.35fr 1fr;gap:18px}
+.grid>div{min-width:0}
+section{max-width:100%}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+h1{font-size:21px;margin:0 0 6px}h2{font-size:15px;margin:0 0 10px;color:var(--ink)}
+p.lede{color:var(--dim);margin:0 0 14px}
+.small{font-size:13px;color:var(--dim)}
+select,input[type=number]{font:inherit;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;width:100%}
+label{display:block;margin:10px 0 4px;font-size:13px;color:var(--dim)}
+.tw{overflow-x:auto;max-width:100%}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:520px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--dim);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.bar{height:8px;border-radius:4px;background:var(--bar);display:inline-block;vertical-align:middle}
+button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 12px;cursor:pointer}
+button.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.kpi{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)}
+.kpi .v{font-weight:600;font-variant-numeric:tabular-nums}
+.kpi.big .v{font-size:19px;color:var(--accent)}
+.note{background:#fff8e6;border:1px solid #f0dfa0;border-radius:10px;padding:12px 14px;font-size:13.5px}
+.step{cursor:pointer}
+.step:hover{background:#f2f6fd}
+.pathline{font-size:13px;color:var(--dim);margin:8px 0 2px}
+.tag{display:inline-block;background:#eef3fb;color:#2b4a74;border-radius:6px;padding:1px 7px;font-size:12px;margin-left:6px}
+footer{color:var(--dim);font-size:12.5px;margin-top:18px}
+</style></head><body>
+<header><b>Customer journeys and the return on embedding AI</b><div class="sub">Teaching demo · Santander product-holding data · 775,348 customers, 9,433 journey states</div></header>
+<div class="wrap">
+<section>
+  <h1>What the model learned, and what it is worth</h1>
+  <p class="lede">Each customer starts in a product state. Over the following months they add products, or they do not. The tree below is built from what 775,348 customers actually did. Pick a starting state, follow the steps, and the panel on the right turns the difference between journeys into money — with the assumptions visible and adjustable, because that is where most ROI claims quietly fail.</p>
+</section>
+<div class="grid">
+  <div>
+    <section>
+      <h2>1 · Where the customer starts</h2>
+      <div class="chips" id="roots"></div>
+      <div style="position:relative">
+        <canvas id="tree" style="width:100%;height:360px;display:block;border:1px solid var(--line);border-radius:10px;background:#fbfcfe"></canvas>
+        <div style="position:absolute;left:10px;top:8px;font-size:12px;color:var(--dim)" id="treecap"></div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin:8px 0 12px">
+        <button id="play">Replay the flow</button>
+        <span class="small">Branch width is the number of customers; height is the products they end up holding. Click a branch to cost it.</span>
+      </div>
+      <div class="pathline" id="pathline"></div>
+      <div class="tw"><table id="tbl"><thead><tr><th>Next step</th><th class="num">Customers</th><th class="num">Products held after</th><th>Relative to this state</th></tr></thead><tbody></tbody></table></div>
+      <p class="small" id="hint"></p>
+    </section>
+    <section>
+      <h2>2 · The strongest journey from each starting state</h2>
+      <div class="tw"><table id="best"><thead><tr><th>Starting state</th><th>Journey</th><th class="num">n</th><th class="num">Gain</th></tr></thead><tbody></tbody></table></div>
+      <p class="small">Gain is the difference between the products held at the end of this journey and the average for everyone who started in the same state. These are the paths the tree ranks highest with at least 50 customers.</p>
+    </section>
+  </div>
+  <div>
+    <section>
+      <h2>3 · Return on embedding this in the process</h2>
+      <p class="small">The model is only worth what acting on it earns. Set the assumptions; every figure below recomputes.</p>
+      <p class="small" id="targetline" style="margin:0 0 10px"></p>
+      <label>Customers in the selected state <span class="tag" id="segtag"></span></label>
+      <input type="number" id="seg" value="0">
+      <label>Share you can reach and act on (%)</label>
+      <input type="number" id="reach" value="30" min="0" max="100">
+      <label>Share of the observed gain you actually capture (%) — see the caution below</label>
+      <input type="number" id="capture" value="20" min="0" max="100">
+      <label>Annual margin per additional product held (€)</label>
+      <input type="number" id="margin" value="120">
+      <label>Cost per customer contacted (€)</label>
+      <input type="number" id="cost" value="3.5">
+      <label>Build and run cost of the model, first year (€)</label>
+      <input type="number" id="fixed" value="150000">
+      <div style="margin-top:14px">
+        <div class="kpi"><span>Customers contacted</span><span class="v" id="k_contact">—</span></div>
+        <div class="kpi"><span>Observed gain per customer (products)</span><span class="v" id="k_gain">—</span></div>
+        <div class="kpi"><span>Additional products, captured</span><span class="v" id="k_prod">—</span></div>
+        <div class="kpi"><span>Gross margin</span><span class="v" id="k_rev">—</span></div>
+        <div class="kpi"><span>Contact cost + model cost</span><span class="v" id="k_cost">—</span></div>
+        <div class="kpi big"><span>Net, first year</span><span class="v" id="k_net">—</span></div>
+        <div class="kpi big"><span>Return on spend</span><span class="v" id="k_roi">—</span></div>
+        <div class="kpi"><span>Break-even capture rate</span><span class="v" id="k_be">—</span></div>
+      </div>
+    </section>
+    <section>
+      <h2>4 · Governance and delivery model</h2>
+      <p class="small">Who owns the work changes reach, execution quality and cost — before any model improves. Pick a model; every figure recomputes. The multipliers are assumptions, editable below, informed by the sources listed.</p>
+      <div class="chips" id="govchips"></div>
+      <p class="small" id="govwhy"></p>
+      <div class="tw"><table id="govtab"><thead><tr><th>Model</th><th class="num">Reach</th><th class="num">Capture</th><th class="num">Run cost</th><th class="num">Net, first year</th><th class="num">Return</th></tr></thead><tbody></tbody></table></div>
+      <p class="small">Sources for the direction of these adjustments: IBM (centralized or hub-and-spoke report 36% higher ROI than decentralized); McKinsey (over half of enterprises run gen AI centrally; risk and compliance centralized, deployment and adoption federated; top performers still capture about 70% of potential); Dataiku (organizations that scale AI are three times more likely to use hub-and-spoke); Gartner (over 40% of agentic AI projects predicted cancelled by 2027 for structural reasons). The numbers here are illustrative assumptions, not measurements from your organization.</p>
+    </section>
+    <section>
+      <h2>5 · Optimizer</h2>
+      <p class="small">Hold everything else and solve one variable for a target.</p>
+      <label>Solve for</label>
+      <select id="solvefor">
+        <option value="capture">Share of the gain captured</option>
+        <option value="reach">Share reached</option>
+        <option value="margin">Margin per product</option>
+        <option value="cost">Cost per customer contacted</option>
+        <option value="fixed">Programme cost</option>
+        <option value="seg">Customers in the segment</option>
+      </select>
+      <label>Target</label>
+      <select id="target"><option value="0">Break even (net = 0)</option><option value="100">Return of 100%</option><option value="200">Return of 200%</option><option value="300">Return of 300%</option></select>
+      <div style="display:flex;gap:8px;margin-top:10px"><button id="solve">Solve</button><button id="bestbranch">Find the best journey for these assumptions</button></div>
+      <div class="banner" id="solveout" style="margin-top:10px"></div>
+    </section>
+    <section>
+      <h2>6 · Session report</h2>
+      <p class="small">Everything selected and changed in this session, with an interpretation of each variable and a summary. Opens in a new tab, ready to print or save as PDF.</p>
+      <button id="report">Open the session report</button>
+    </section>
+    <section>
+      <div class="note"><b>The caution that makes this teachable.</b> Customers were not assigned to these journeys; they chose them. Someone who sets up a payroll account was already more engaged. So the observed gain is an upper bound on what an intervention can produce, which is why the capture rate above is a separate, explicit assumption rather than hidden in the model. The honest sequence is: rank with the model, then run a randomised holdout on a few thousand customers, then replace the capture assumption with the measured effect. The break-even figure tells you what that test has to beat.</div>
+    </section>
+  </div>
+</div>
+<section>
+  <h2>Using this in class</h2>
+  <p class="small">Three moves, in order. <b>One:</b> the model produces a ranking, not value — the tree alone changes nothing. <b>Two:</b> value appears only when the ranking is embedded in a process that reaches customers, which is what the reach and cost inputs represent. <b>Three:</b> the number everyone quotes (the observed gain) is the one that does not survive contact with causality, so the exercise is to find the capture rate at which the investment breaks even and ask whether a test could plausibly beat it.</p>
+</section>
+<footer>Data: Santander product-recommendation records, 2015-01 to 2016-05, 775,348 customers. Journey states are combinations of held products; the outcome is products held at the end of the observed window. Teaching demonstration, not a business case.</footer>
+</div>
+<script>
+const DATA={"total_customers":775348,"roots":[{"name":"Current acct","count":413800,"mean":1.066,"children":[{"name":"(no further step)","count":360999,"mean":0.962,"lower95":0.961,"children":[{"name":"(no further step)","count":360999,"mean":0.962,"lower95":0.961}]},{"name":"Direct debit","count":26993,"mean":1.69,"lower95":1.68,"children":[{"name":"(no further step)","count":13935,"mean":1.519,"lower95":1.509},{"name":"Direct debit","count":8345,"mean":1.552,"lower95":1.537},{"name":"Current acct","count":1410,"mean":1.45,"lower95":1.409},{"name":"Payroll + Payroll acct + Pensions","count":1200,"mean":3.038,"lower95":2.968},{"name":"Payroll + Pensions","count":490,"mean":3.102,"lower95":2.991},{"name":"Taxes","count":455,"mean":2.765,"lower95":2.694}]},{"name":"Payroll + Payroll acct + Pensions","count":4452,"mean":2.291,"lower95":2.255,"children":[{"name":"(no further step)","count":1993,"mean":1.951,"lower95":1.905},{"name":"Direct debit","count":1034,"mean":2.842,"lower95":2.761},{"name":"Payroll + Pensions","count":957,"mean":2.327,"lower95":2.256},{"name":"Current acct","count":155,"mean":1.355,"lower95":1.214},{"name":"Direct debit + Payroll + Pensions","count":49,"mean":3.102,"lower95":2.793},{"name":"Taxes","count":48,"mean":2.479,"lower95":2.124}]},{"name":"M\u00e1s particular acct","count":3216,"mean":1.636,"lower95":1.602,"children":[{"name":"e-account","count":1777,"mean":1.517,"lower95":1.48},{"name":"(no further step)","count":827,"mean":1.283,"lower95":1.233},{"name":"Current acct","count":158,"mean":1.633,"lower95":1.492},{"name":"Direct debit","count":124,"mean":2.847,"lower95":2.656},{"name":"Long-term deposit + e-account","count":43,"mean":2.395,"lower95":2.221},{"name":"Current acct + e-account","count":41,"mean":2.0,"lower95":1.753}]},{"name":"Current acct","count":3136,"mean":1.004,"lower95":0.981,"children":[{"name":"(no further step)","count":2178,"mean":0.837,"lower95":0.821},{"name":"Current acct","count":403,"mean":0.834,"lower95":0.776},{"name":"Direct debit","count":335,"mean":1.573,"lower95":1.482},{"name":"Payroll + Payroll acct + Pensions","count":67,"mean":2.104,"lower95":1.815},{"name":"Payroll + Pensions","count":28,"mean":2.786,"lower95":2.331},{"name":"Taxes","count":22,"mean":1.682,"lower95":1.412}]},{"name":"Payroll + Pensions","count":2375,"mean":2.392,"lower95":2.341,"children":[{"name":"Payroll acct","count":1939,"mean":2.248,"lower95":2.192},{"name":"Direct debit + Payroll acct","count":230,"mean":3.187,"lower95":3.026},{"name":"(no further step)","count":155,"mean":2.568,"lower95":2.414},{"name":"Payroll acct + e-account","count":8,"mean":3.875,"lower95":3.011},{"name":"Direct debit","count":8,"mean":2.25,"lower95":1.219},{"name":"Credit card + Payroll acct","count":6,"mean":4.333,"lower95":3.129}]}]},{"name":"No products","count":249087,"mean":0.118,"children":[{"name":"(no further step)","count":225483,"mean":0.0,"lower95":0.0,"children":[{"name":"(no further step)","count":225483,"mean":0.0,"lower95":0.0}]},{"name":"Current acct","count":18645,"mean":1.149,"lower95":1.14,"children":[{"name":"(no further step)","count":14146,"mean":0.923,"lower95":0.918},{"name":"Direct debit","count":2202,"mean":1.858,"lower95":1.826},{"name":"M\u00e1s particular acct","count":486,"mean":1.572,"lower95":1.502},{"name":"Current acct","count":446,"mean":0.919,"lower95":0.86},{"name":"Payroll + Payroll acct + Pensions","count":331,"mean":2.586,"lower95":2.469},{"name":"Payroll + Pensions","count":151,"mean":2.728,"lower95":2.538}]},{"name":"Current acct + Direct debit","count":716,"mean":1.954,"lower95":1.89,"children":[{"name":"(no further step)","count":439,"mean":1.761,"lower95":1.714},{"name":"Direct debit","count":122,"mean":1.525,"lower95":1.401},{"name":"Payroll + Payroll acct + Pensions","count":38,"mean":3.605,"lower95":3.333},{"name":"Current acct","count":32,"mean":1.656,"lower95":1.467},{"name":"Taxes","count":26,"mean":2.808,"lower95":2.52},{"name":"Payroll + Pensions","count":14,"mean":3.286,"lower95":2.689}]},{"name":"M\u00e1s particular acct","count":548,"mean":1.088,"lower95":1.026,"children":[{"name":"(no further step)","count":259,"mean":0.911,"lower95":0.876},{"name":"e-account","count":199,"mean":0.889,"lower95":0.819},{"name":"Current acct","count":56,"mean":1.893,"lower95":1.666},{"name":"Current acct + e-account","count":5,"mean":2.0,"lower95":0.926},{"name":"Payroll + Payroll acct + Pensions","count":4,"mean":4.25,"lower95":2.576},{"name":"Long-term deposit + e-account","count":3,"mean":2.0,"lower95":2.0}]},{"name":"Current acct + M\u00e1s particular acct","count":485,"mean":1.963,"lower95":1.901,"children":[{"name":"(no further step)","count":237,"mean":1.869,"lower95":1.815},{"name":"e-account","count":187,"mean":1.797,"lower95":1.714},{"name":"Direct debit","count":22,"mean":2.773,"lower95":2.459},{"name":"Credit card","count":5,"mean":2.4,"lower95":1.92},{"name":"M\u00e1s particular acct","count":4,"mean":1.25,"lower95":0.312},{"name":"Payroll acct","count":4,"mean":2.0,"lower95":2.0}]},{"name":"Long-term deposit","count":345,"mean":1.125,"lower95":1.073,"children":[{"name":"(no further step)","count":289,"mean":0.979,"lower95":0.963},{"name":"Current acct","count":30,"mean":1.633,"lower95":1.344},{"name":"Payroll acct","count":6,"mean":2.0,"lower95":1.494},{"name":"e-account","count":6,"mean":2.0,"lower95":1.494},{"name":"Funds","count":2,"mean":2.0,"lower95":2.0},{"name":"Particular acct","count":2,"mean":2.0,"lower95":2.0}]}]},{"name":"Current acct + Particular acct","count":41313,"mean":1.982,"children":[{"name":"(no further step)","count":36737,"mean":1.918,"lower95":1.914,"children":[{"name":"(no further step)","count":36737,"mean":1.918,"lower95":1.914}]},{"name":"Direct debit","count":1654,"mean":2.401,"lower95":2.361,"children":[{"name":"Direct debit","count":768,"mean":2.415,"lower95":2.367},{"name":"(no further step)","count":627,"mean":2.12,"lower95":2.07},{"name":"Credit card","count":60,"mean":2.833,"lower95":2.604},{"name":"Current acct","count":54,"mean":2.333,"lower95":2.114},{"name":"Payroll + Pensions","count":22,"mean":4.318,"lower95":3.736},{"name":"Long-term deposit","count":20,"mean":3.15,"lower95":2.893}]},{"name":"Credit card","count":687,"mean":2.425,"lower95":2.364,"children":[{"name":"Credit card","count":299,"mean":2.428,"lower95":2.356},{"name":"(no further step)","count":286,"mean":2.147,"lower95":2.086},{"name":"Direct debit","count":44,"mean":3.25,"lower95":2.883},{"name":"Current acct","count":10,"mean":2.1,"lower95":1.202},{"name":"e-account","count":9,"mean":2.889,"lower95":2.283},{"name":"Long-term deposit","count":6,"mean":3.333,"lower95":2.68}]},{"name":"Long-term deposit","count":680,"mean":2.818,"lower95":2.766,"children":[{"name":"(no further step)","count":561,"mean":2.754,"lower95":2.709},{"name":"e-account","count":35,"mean":2.886,"lower95":2.502},{"name":"Direct debit","count":21,"mean":3.048,"lower95":2.61},{"name":"Credit card","count":15,"mean":3.067,"lower95":2.662},{"name":"Funds","count":11,"mean":3.818,"lower95":3.579},{"name":"Current acct","count":10,"mean":2.4,"lower95":1.877}]},{"name":"e-account","count":345,"mean":2.426,"lower95":2.345,"children":[{"name":"(no further step)","count":255,"mean":2.204,"lower95":2.127},{"name":"Direct debit","count":27,"mean":2.926,"lower95":2.719},{"name":"Particular acct","count":23,"mean":3.043,"lower95":2.814},{"name":"Current acct","count":9,"mean":2.333,"lower95":1.871},{"name":"Long-term deposit","count":8,"mean":3.625,"lower95":3.266},{"name":"Credit card","count":7,"mean":2.571,"lower95":1.989}]},{"name":"Current acct","count":202,"mean":1.718,"lower95":1.637,"children":[{"name":"(no further step)","count":131,"mean":1.656,"lower95":1.57},{"name":"Current acct","count":36,"mean":1.694,"lower95":1.523},{"name":"Direct debit","count":15,"mean":2.0,"lower95":1.617},{"name":"Particular acct","count":4,"mean":1.5,"lower95":0.235},{"name":"Long-term deposit","count":3,"mean":1.667,"lower95":1.013},{"name":"Credit card","count":3,"mean":2.0,"lower95":0.868}]}]},{"name":"Particular acct","count":24141,"mean":1.015,"children":[{"name":"(no further step)","count":22978,"mean":0.975,"lower95":0.973,"children":[{"name":"(no further step)","count":22978,"mean":0.975,"lower95":0.973}]},{"name":"Current acct","count":561,"mean":1.692,"lower95":1.625,"children":[{"name":"(no further step)","count":366,"mean":1.484,"lower95":1.421},{"name":"Current acct","count":51,"mean":1.725,"lower95":1.56},{"name":"Direct debit","count":39,"mean":2.487,"lower95":2.229},{"name":"Long-term deposit","count":21,"mean":2.286,"lower95":2.046},{"name":"e-account","count":17,"mean":2.0,"lower95":1.624},{"name":"Credit card","count":15,"mean":2.0,"lower95":1.617}]},{"name":"Long-term deposit","count":127,"mean":2.079,"lower95":1.995,"children":[{"name":"(no further step)","count":90,"mean":1.956,"lower95":1.913},{"name":"Current acct","count":28,"mean":2.464,"lower95":2.189},{"name":"e-account","count":6,"mean":1.833,"lower95":1.507},{"name":"Particular acct","count":2,"mean":2.0,"lower95":2.0},{"name":"Current acct + Taxes","count":1,"mean":4.0,"lower95":4.0}]},{"name":"Particular acct","count":70,"mean":0.929,"lower95":0.772,"children":[{"name":"(no further step)","count":59,"mean":0.831,"lower95":0.734},{"name":"Particular acct","count":5,"mean":0.6,"lower95":0.12},{"name":"Current acct","count":3,"mean":1.667,"lower95":1.013},{"name":"Current acct + Direct debit","count":1,"mean":5.0,"lower95":5.0},{"name":"Payroll acct","count":1,"mean":2.0,"lower95":2.0},{"name":"e-account","count":1,"mean":1.0,"lower95":1.0}]},{"name":"e-account","count":63,"mean":1.841,"lower95":1.594,"children":[{"name":"(no further step)","count":31,"mean":1.29,"lower95":1.104},{"name":"Current acct","count":13,"mean":2.308,"lower95":1.705},{"name":"Particular acct","count":10,"mean":1.8,"lower95":1.408},{"name":"Current acct + Payroll + Pensions","count":3,"mean":4.0,"lower95":4.0},{"name":"Current acct + Particular acct + Payroll + Pensions","count":1,"mean":3.0,"lower95":3.0},{"name":"Current acct + Long-term deposit","count":1,"mean":3.0,"lower95":3.0}]},{"name":"Direct debit","count":41,"mean":1.39,"lower95":1.049,"children":[{"name":"(no further step)","count":18,"mean":0.778,"lower95":0.524},{"name":"Current acct","count":13,"mean":1.923,"lower95":1.454},{"name":"Direct debit","count":4,"mean":1.5,"lower95":0.52},{"name":"Particular acct","count":2,"mean":1.0,"lower95":1.0},{"name":"Current acct + Securities","count":1,"mean":1.0,"lower95":1.0},{"name":"Current acct + Direct debit","count":1,"mean":1.0,"lower95":1.0}]}]},{"name":"Current acct + Direct debit","count":22096,"mean":1.877,"children":[{"name":"(no further step)","count":9415,"mean":1.694,"lower95":1.682,"children":[{"name":"(no further step)","count":9415,"mean":1.694,"lower95":1.682}]},{"name":"Direct debit","count":6639,"mean":1.642,"lower95":1.623,"children":[{"name":"Direct debit","count":3431,"mean":1.603,"lower95":1.58},{"name":"(no further step)","count":2393,"mean":1.514,"lower95":1.49},{"name":"Current acct","count":351,"mean":1.541,"lower95":1.457},{"name":"Payroll + Payroll acct + Pensions","count":117,"mean":3.017,"lower95":2.795},{"name":"Payroll + Pensions","count":78,"mean":3.026,"lower95":2.775},{"name":"Credit card","count":69,"mean":2.246,"lower95":2.012}]},{"name":"Current acct","count":2063,"mean":1.654,"lower95":1.618,"children":[{"name":"(no further step)","count":881,"mean":1.512,"lower95":1.469},{"name":"Current acct","count":591,"mean":1.694,"lower95":1.631},{"name":"Direct debit","count":398,"mean":1.445,"lower95":1.368},{"name":"Payroll + Payroll acct + Pensions","count":60,"mean":2.783,"lower95":2.478},{"name":"Current acct + Direct debit","count":27,"mean":1.519,"lower95":1.166},{"name":"Payroll + Pensions","count":25,"mean":3.52,"lower95":3.052}]},{"name":"Payroll + Payroll acct + Pensions","count":1205,"mean":2.924,"lower95":2.852,"children":[{"name":"(no further step)","count":472,"mean":2.903,"lower95":2.799},{"name":"Payroll + Pensions","count":328,"mean":3.146,"lower95":3.015},{"name":"Direct debit","count":162,"mean":2.37,"lower95":2.185},{"name":"Current acct","count":71,"mean":2.324,"lower95":2.047},{"name":"Payroll acct","count":53,"mean":2.321,"lower95":1.975},{"name":"Credit card","count":37,"mean":3.919,"lower95":3.442}]},{"name":"Credit card","count":650,"mean":2.375,"lower95":2.301,"children":[{"name":"Credit card","count":237,"mean":2.38,"lower95":2.279},{"name":"(no further step)","count":221,"mean":2.14,"lower95":2.047},{"name":"Direct debit","count":94,"mean":2.085,"lower95":1.885},{"name":"Payroll + Payroll acct + Pensions","count":20,"mean":3.6,"lower95":3.06},{"name":"Taxes","count":14,"mean":2.929,"lower95":2.367},{"name":"Current acct","count":13,"mean":2.231,"lower95":1.559}]},{"name":"Payroll + Pensions","count":585,"mean":3.174,"lower95":3.073,"children":[{"name":"Payroll acct","count":521,"mean":3.136,"lower95":3.031},{"name":"Direct debit + Payroll acct","count":25,"mean":2.92,"lower95":2.333},{"name":"(no further step)","count":20,"mean":3.55,"lower95":3.112},{"name":"Payroll + Payroll acct + Pensions","count":3,"mean":2.667,"lower95":0.938},{"name":"Credit card + Payroll acct","count":3,"mean":5.333,"lower95":4.68},{"name":"Payroll acct + Taxes","count":2,"mean":4.0,"lower95":0.08}]}]},{"name":"Current acct + e-account","count":9733,"mean":2.051,"children":[{"name":"(no further step)","count":6269,"mean":1.812,"lower95":1.799,"children":[{"name":"(no further step)","count":6269,"mean":1.812,"lower95":1.799}]},{"name":"Direct debit","count":1335,"mean":2.458,"lower95":2.41,"children":[{"name":"Direct debit","count":528,"mean":2.449,"lower95":2.382},{"name":"(no further step)","count":518,"mean":2.253,"lower95":2.19},{"name":"Credit card","count":59,"mean":2.712,"lower95":2.412},{"name":"Current acct","count":58,"mean":2.138,"lower95":1.89},{"name":"Payroll + Payroll acct + Pensions","count":30,"mean":3.367,"lower95":2.911},{"name":"e-account","count":30,"mean":2.167,"lower95":1.854}]},{"name":"Credit card","count":509,"mean":2.43,"lower95":2.363,"children":[{"name":"(no further step)","count":197,"mean":2.086,"lower95":2.009},{"name":"Credit card","count":193,"mean":2.44,"lower95":2.351},{"name":"Direct debit","count":61,"mean":2.934,"lower95":2.711},{"name":"Current acct","count":10,"mean":2.2,"lower95":1.711},{"name":"Long-term deposit","count":8,"mean":3.375,"lower95":3.016},{"name":"Payroll + Pensions","count":6,"mean":2.667,"lower95":1.573}]},{"name":"Long-term deposit","count":438,"mean":2.806,"lower95":2.74,"children":[{"name":"(no further step)","count":336,"mean":2.735,"lower95":2.681},{"name":"e-account","count":20,"mean":2.6,"lower95":2.213},{"name":"Current acct","count":19,"mean":2.421,"lower95":2.075},{"name":"Direct debit","count":19,"mean":3.105,"lower95":2.634},{"name":"Funds","count":11,"mean":3.545,"lower95":3.237},{"name":"Credit card","count":8,"mean":2.875,"lower95":2.63}]},{"name":"e-account","count":301,"mean":1.528,"lower95":1.443,"children":[{"name":"(no further step)","count":232,"mean":1.379,"lower95":1.294},{"name":"Current acct","count":21,"mean":1.714,"lower95":1.353},{"name":"Direct debit","count":14,"mean":2.643,"lower95":2.311},{"name":"e-account","count":14,"mean":1.714,"lower95":1.469},{"name":"Long-term deposit","count":3,"mean":2.333,"lower95":1.68},{"name":"Credit card","count":3,"mean":2.0,"lower95":0.868}]},{"name":"Current acct","count":230,"mean":1.852,"lower95":1.738,"children":[{"name":"(no further step)","count":118,"mean":1.593,"lower95":1.485},{"name":"Current acct","count":49,"mean":1.673,"lower95":1.428},{"name":"Direct debit","count":16,"mean":2.0,"lower95":1.562},{"name":"e-account","count":9,"mean":2.111,"lower95":1.719},{"name":"Credit card","count":6,"mean":2.5,"lower95":1.831},{"name":"Payroll + Payroll acct + Pensions","count":6,"mean":3.333,"lower95":2.68}]}]},{"name":"Junior acct","count":8470,"mean":1.009,"children":[{"name":"(no further step)","count":7429,"mean":0.955,"lower95":0.95,"children":[{"name":"(no further step)","count":7429,"mean":0.955,"lower95":0.95}]},{"name":"e-account","count":725,"mean":1.345,"lower95":1.286,"children":[{"name":"(no further step)","count":367,"mean":0.741,"lower95":0.696},{"name":"Current acct","count":201,"mean":1.881,"lower95":1.801},{"name":"Payroll acct","count":145,"mean":2.028,"lower95":1.932},{"name":"Current acct + Direct debit","count":2,"mean":3.0,"lower95":3.0},{"name":"Junior acct","count":2,"mean":1.0,"lower95":1.0},{"name":"Current acct + Long-term deposit","count":2,"mean":3.0,"lower95":3.0}]},{"name":"Junior acct","count":131,"mean":0.863,"lower95":0.768,"children":[{"name":"(no further step)","count":106,"mean":0.736,"lower95":0.652},{"name":"Junior acct","count":13,"mean":1.231,"lower95":0.992},{"name":"e-account","count":6,"mean":1.333,"lower95":0.507},{"name":"Pensions","count":2,"mean":2.0,"lower95":2.0},{"name":"Junior acct + Pensions","count":2,"mean":2.0,"lower95":2.0},{"name":"Current acct","count":1,"mean":2.0,"lower95":2.0}]},{"name":"Current acct + e-account","count":62,"mean":2.0,"lower95":1.881,"children":[{"name":"(no further step)","count":46,"mean":1.913,"lower95":1.811},{"name":"Direct debit","count":9,"mean":2.556,"lower95":2.211},{"name":"Current acct","count":2,"mean":1.5,"lower95":0.52},{"name":"e-account","count":2,"mean":1.5,"lower95":0.52},{"name":"Long-term deposit","count":1,"mean":3.0,"lower95":3.0},{"name":"M\u00e1s particular acct","count":1,"mean":2.0,"lower95":2.0}]},{"name":"Pensions","count":45,"mean":1.933,"lower95":1.86,"children":[{"name":"(no further step)","count":39,"mean":1.974,"lower95":1.924},{"name":"Pensions","count":5,"mean":1.8,"lower95":1.408},{"name":"Junior acct","count":1,"mean":1.0,"lower95":1.0}]},{"name":"Payroll acct + e-account","count":35,"mean":2.143,"lower95":1.928,"children":[{"name":"(no further step)","count":14,"mean":2.0,"lower95":2.0},{"name":"Current acct","count":12,"mean":1.917,"lower95":1.625},{"name":"Direct debit","count":4,"mean":2.75,"lower95":1.28},{"name":"Payroll acct","count":2,"mean":2.0,"lower95":2.0},{"name":"Credit card","count":1,"mean":3.0,"lower95":3.0},{"name":"Current acct + Direct debit","count":1,"mean":3.0,"lower95":3.0}]}]},{"name":"Current acct + Particular Plus acct","count":6708,"mean":2.005,"children":[{"name":"(no further step)","count":5464,"mean":1.89,"lower95":1.879,"children":[{"name":"(no further step)","count":5464,"mean":1.89,"lower95":1.879}]},{"name":"Direct debit","count":541,"mean":2.42,"lower95":2.345,"children":[{"name":"Direct debit","count":263,"mean":2.418,"lower95":2.329},{"name":"(no further step)","count":179,"mean":2.045,"lower95":1.948},{"name":"Credit card","count":19,"mean":2.947,"lower95":2.597},{"name":"Current acct","count":15,"mean":2.333,"lower95":1.92},{"name":"Taxes","count":11,"mean":3.455,"lower95":3.146},{"name":"Long-term deposit","count":9,"mean":3.556,"lower95":2.893}]},{"name":"Credit card","count":179,"mean":2.408,"lower95":2.268,"children":[{"name":"Credit card","count":75,"mean":2.453,"lower95":2.259},{"name":"(no further step)","count":65,"mean":2.077,"lower95":1.914},{"name":"Direct debit","count":16,"mean":2.438,"lower95":1.965},{"name":"e-account","count":4,"mean":2.5,"lower95":1.934},{"name":"Particular Plus acct","count":3,"mean":3.0,"lower95":1.04},{"name":"Payroll acct","count":3,"mean":4.333,"lower95":1.978}]},{"name":"Long-term deposit","count":166,"mean":2.819,"lower95":2.724,"children":[{"name":"(no further step)","count":130,"mean":2.769,"lower95":2.685},{"name":"e-account","count":8,"mean":3.25,"lower95":2.636},{"name":"Direct debit","count":8,"mean":3.0,"lower95":2.63},{"name":"Current acct","count":7,"mean":1.857,"lower95":1.346},{"name":"Credit card","count":3,"mean":3.0,"lower95":3.0},{"name":"Particular Plus acct","count":3,"mean":2.667,"lower95":2.013}]},{"name":"e-account","count":63,"mean":2.397,"lower95":2.173,"children":[{"name":"(no further step)","count":47,"mean":2.149,"lower95":1.926},{"name":"Direct debit","count":5,"mean":3.4,"lower95":2.92},{"name":"Particular Plus acct","count":3,"mean":2.333,"lower95":1.68},{"name":"Long-term deposit","count":2,"mean":3.5,"lower95":2.52},{"name":"Credit card","count":2,"mean":3.5,"lower95":2.52},{"name":"Direct debit + Payroll + Pensions","count":1,"mean":2.0,"lower95":2.0}]},{"name":"Current acct","count":54,"mean":1.648,"lower95":1.446,"children":[{"name":"(no further step)","count":30,"mean":1.467,"lower95":1.205},{"name":"Current acct","count":13,"mean":1.769,"lower95":1.444},{"name":"Direct debit","count":3,"mean":2.0,"lower95":0.868},{"name":"Particular Plus acct","count":3,"mean":1.333,"lower95":0.68},{"name":"Credit card","count":2,"mean":3.0,"lower95":3.0},{"name":"Particular acct","count":1,"mean":3.0,"lower95":3.0}]}]}],"best_paths":[{"root":"No products","path":"No products \u203a Current acct \u203a Direct debit \u203a Payroll + Payroll acct + Pensions","n":82,"mean_outcome":3.524390243902439,"lower95":3.293150245419844,"root_mean":0.1182478411157547,"uplift_vs_root":3.4061424027866845},{"root":"Current acct","path":"Current acct \u203a Direct debit + Payroll + Pensions \u203a Payroll acct \u203a Payroll + Pensions","n":59,"mean_outcome":3.4745762711864407,"lower95":3.23597604143147,"root_mean":1.065681488641856,"uplift_vs_root":2.408894782544585},{"root":"Current acct + Direct debit","path":"Current acct + Direct debit \u203a Payroll + Payroll acct + Pensions \u203a Payroll + Pensions \u203a Payroll + Pensions","n":109,"mean_outcome":3.3486238532110093,"lower95":3.150115567486486,"root_mean":1.877172338884866,"uplift_vs_root":1.4714515143261433},{"root":"Current acct + e-account","path":"Current acct + e-account \u203a Taxes \u203a (no further step) \u203a (no further step)","n":53,"mean_outcome":2.8867924528301887,"lower95":2.8006726386464083,"root_mean":2.050652419603411,"uplift_vs_root":0.8361400332267777},{"root":"Current acct + Particular acct","path":"Current acct + Particular acct \u203a Long-term deposit \u203a (no further step) \u203a (no further step)","n":561,"mean_outcome":2.7540106951871657,"lower95":2.709495344134322,"root_mean":1.9822089899063249,"uplift_vs_root":0.7718017052808408},{"root":"Current acct + Particular Plus acct","path":"Current acct + Particular Plus acct \u203a Long-term deposit \u203a (no further step) \u203a (no further step)","n":130,"mean_outcome":2.769230769230769,"lower95":2.684856787135341,"root_mean":2.0047704233750747,"uplift_vs_root":0.7644603458556944},{"root":"Particular acct","path":"Particular acct \u203a Long-term deposit \u203a (no further step) \u203a (no further step)","n":90,"mean_outcome":1.9555555555555555,"lower95":1.9127403749941825,"root_mean":1.0154094693674662,"uplift_vs_root":0.9401460861880891},{"root":"Junior acct","path":"Junior acct \u203a e-account \u203a Payroll acct \u203a (no further step)","n":62,"mean_outcome":1.9193548387096773,"lower95":1.837496840812984,"root_mean":1.0089728453364817,"uplift_vs_root":0.9103819933731958}]};
+const fmt=(x,d=0)=>x.toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const eur=x=>'€'+fmt(Math.round(x));
+let sel=0, path=[];
+const $=id=>document.getElementById(id);
+function roots(){
+  $('roots').innerHTML=DATA.roots.map((r,i)=>`<button class="${i===sel?'sel':''}" data-i="${i}">${r.name} <span class="small">(${fmt(r.count)})</span></button>`).join('');
+  $('roots').onclick=e=>{const b=e.target.closest('button');if(!b)return;sel=+b.dataset.i;path=[];log('Starting state: '+DATA.roots[sel].name);render()};
+}
+function node(){
+  let n=DATA.roots[sel];
+  for(const p of path){const k=(n.children||[]).find(c=>c.name===p);if(!k)break;n=k}
+  return n;
+}
+function render(){
+  roots();
+  const root=DATA.roots[sel], n=node();
+  $('pathline').innerHTML='<b>'+root.name+'</b>'+path.map(p=>' › '+p).join('')+(path.length?' <button id="back">back</button>':'');
+  if($('back'))$('back').onclick=()=>{path.pop();render()};
+  const kids=(n.children||[]).slice().sort((a,b)=>b.count-a.count);
+  const mx=Math.max(...kids.map(k=>k.mean),root.mean,0.01);
+  $('tbl').querySelector('tbody').innerHTML=kids.map(k=>{
+    const d=k.mean-root.mean, w=Math.max(2,120*k.mean/mx);
+    return `<tr class="step" data-n="${k.name}"><td>${k.name}</td><td class="num">${fmt(k.count)}</td><td class="num">${fmt(k.mean,2)}</td>
+    <td><span class="bar" style="width:${w}px"></span> <span style="color:${d>=0?'var(--good)':'var(--warn)'}">${d>=0?'+':'−'}${fmt(Math.abs(d),2)}</span></td></tr>`}).join('');
+  $('tbl').querySelector('tbody').onclick=e=>{const tr=e.target.closest('tr');if(!tr)return;const k=kids.find(x=>x.name===tr.dataset.n);if(k&&k.children&&k.children.length){path.push(k.name);render()}};
+  $('hint').textContent=(n.children&&n.children.length&&n.children[0].children)?'Click a step to follow the journey further.':'End of the recorded journey for this branch.';
+  $('segtag').textContent=root.name;
+  if(!$('seg').dataset.touched)$('seg').value=root.count;
+  $('best').querySelector('tbody').innerHTML=DATA.best_paths.map(b=>`<tr><td>${b.root}</td><td class="small">${b.path}</td><td class="num">${fmt(b.n)}</td><td class="num" style="color:var(--good)">+${fmt(b.uplift_vs_root,2)}</td></tr>`).join('');
+  roi(); drawTree();
+}
+function target(){   // the step whose value is being costed
+  const root=DATA.roots[sel], n=node();
+  if(path.length) return {name:path.join(' › '),mean:n.mean,count:n.count};
+  const k=(n.children||[]).filter(c=>c.count>=50&&c.name!=='(no further step)').sort((a,b)=>b.mean-a.mean)[0];
+  return k?{name:k.name,mean:k.mean,count:k.count}:{name:'—',mean:root.mean,count:root.count};
+}
+function roi(){
+  const root=DATA.roots[sel], t=target(), E=econ(gov), gain=E.gain;
+  $('targetline').innerHTML='Costing the step: <b>'+t.name+'</b> · '+fmt(t.count)+' customers took it'+(path.length?'':' <span class="small">(strongest step from this state; click a row to choose another)</span>');
+  const {contacted,prods,rev,spend,net,roi,be}=E;
+  $('k_contact').textContent=fmt(Math.round(contacted));
+  $('k_gain').textContent=fmt(gain,2);
+  $('k_prod').textContent=fmt(Math.round(prods));
+  $('k_rev').textContent=eur(rev);
+  $('k_cost').textContent=eur(spend);
+  $('k_net').textContent=eur(net);
+  $('k_net').style.color=net>=0?'var(--good)':'var(--warn)';
+  $('k_roi').textContent=(spend>0?fmt(100*roi,0)+'%':'—');
+  $('k_roi').style.color=net>=0?'var(--good)':'var(--warn)';
+  $('k_be').textContent=isFinite(be)?fmt(100*be,1)+'% of the observed gain':'—';
+  govUI();
+}
+// ---- animated journey tree -------------------------------------------------
+const cv=$('tree'), cx=cv.getContext('2d');
+let anim=0, raf=null, hot=null, boxes=[];
+function layout(){
+  const root=DATA.roots[sel], n=node();
+  const cols=[[{name:root.name,count:root.count,mean:root.mean,ref:null,path:[]}]];
+  let cur=n, p=[...path];
+  // column 2: children of the node in view; column 3: children of the hovered/first child
+  const kids=(cur.children||[]).filter(k=>k.name!=='(no further step)').sort((a,b)=>b.count-a.count).slice(0,5);
+  cols.push(kids.map(k=>({name:k.name,count:k.count,mean:k.mean,ref:k,path:[...p,k.name]})));
+  const focus=hot&&kids.find(k=>k.name===hot)||kids[0];
+  const g=((focus&&focus.children)||[]).filter(k=>k.name!=='(no further step)').sort((a,b)=>b.count-a.count).slice(0,5);
+  cols.push(g.map(k=>({name:k.name,count:k.count,mean:k.mean,ref:k,path:[...p,focus?focus.name:'',k.name]})));
+  return {cols,focus,root};
+}
+function drawTree(){
+  const dpr=Math.min(devicePixelRatio||1,2), W=cv.clientWidth, H=cv.clientHeight;
+  cv.width=W*dpr; cv.height=H*dpr; cx.setTransform(dpr,0,0,dpr,0,0); cx.clearRect(0,0,W,H);
+  const {cols,focus,root}=layout(); boxes=[];
+  const maxMean=Math.max(...cols.flat().map(c=>c.mean),0.5);
+  const colX=[24,W*0.36,W*0.70];
+  const yOf=m=>H-26-(H-60)*(m/(maxMean*1.15));
+  cx.font='11px -apple-system,Segoe UI,Roboto,sans-serif'; cx.textBaseline='middle';
+  cols.forEach((col,ci)=>{
+    const tot=col.reduce((a,c)=>a+c.count,0)||1;
+    // keep labels from overlapping: order by height, then push apart
+    const order=col.map((c,i)=>({i,y:yOf(c.mean)})).sort((a,b)=>a.y-b.y);
+    const labY={}; let last=-1e9;
+    for(const o of order){const ly=Math.max(o.y,last+26); labY[o.i]=ly; last=ly}
+    col.forEach((c,i)=>{
+      const x=colX[ci], y=yOf(c.mean), ly=labY[i], w=Math.max(3,26*Math.sqrt(c.count/tot));
+      const grow=Math.max(0,Math.min(1,(anim-ci*0.28)/0.5));
+      if(grow<=0) return;
+      if(ci>0){
+        const par=ci===1?cols[0][0]:(focus?{mean:focus.mean,count:focus.count}:cols[1][0]);
+        const px=colX[ci-1], py=yOf(par.mean);
+        cx.strokeStyle=c.mean>=root.mean?'rgba(19,122,75,.45)':'rgba(168,82,10,.35)';
+        cx.lineWidth=Math.max(1,w*0.8);
+        cx.beginPath(); cx.moveTo(px+6,py);
+        const ex=px+(x-px)*grow, ey=py+(y-py)*grow;
+        cx.bezierCurveTo(px+(x-px)*0.5*grow,py,px+(x-px)*0.5*grow,ey,ex,ey); cx.stroke();
+      }
+      if(grow>0.85){
+        cx.fillStyle=c.mean>=root.mean?'#137a4b':'#a8520a';
+        cx.beginPath(); cx.arc(x,y,Math.max(3,w*0.45),0,7); cx.fill();
+        if(Math.abs(ly-y)>3){cx.strokeStyle='rgba(91,102,115,.35)';cx.lineWidth=1;cx.beginPath();cx.moveTo(x+6,y);cx.lineTo(x+14,ly);cx.stroke()}
+        cx.fillStyle='#131820';
+        const label=c.name.length>24?c.name.slice(0,22)+'…':c.name;
+        cx.fillText(label+'  '+fmt(c.mean,2),x+16,ly-7);
+        cx.fillStyle='#5b6673'; cx.fillText(fmt(c.count)+' customers',x+16,ly+7);
+        boxes.push({x,y,r:14,c});
+      }
+    });
+  });
+  cx.fillStyle='#5b6673';
+  cx.save();cx.translate(12,H/2);cx.rotate(-Math.PI/2);cx.fillText('products held →',0,0);cx.restore();
+  $('treecap').textContent=`${root.name}${path.length?' › '+path.join(' › '):''}`;
+}
+function animate(){
+  cancelAnimationFrame(raf); anim=0;
+  const step=()=>{anim+=0.035; drawTree(); if(anim<1.5) raf=requestAnimationFrame(step)};
+  step();
+}
+cv.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  const b=boxes.find(b=>Math.hypot(b.x-mx,b.y-my)<18);
+  const nm=b&&b.c.path.length===path.length+1?b.c.name:null;
+  if(nm!==hot){hot=nm;drawTree()}
+  cv.style.cursor=b?'pointer':'default';
+});
+cv.addEventListener('click',e=>{
+  const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  const b=boxes.find(b=>Math.hypot(b.x-mx,b.y-my)<18);
+  if(!b) return;
+  path=b.c.path.filter(Boolean); log('Journey step: '+path.join(' › ')); render(); animate();
+});
+$('play').onclick=animate;
+addEventListener('resize',drawTree);
+// ---- governance and delivery models ---------------------------------------
+const GOV=[
+ {k:'none', name:'Ad hoc, no owner', reach:.5, capture:.5, fixed:.7, cost:1.0, ramp:.5,
+  why:'Nobody owns deployment: pilots run, few reach customers. Cheap to start, and the most common way value never appears. Gartner predicts over 40% of agentic AI projects are cancelled by 2027 for structural rather than technical reasons.'},
+ {k:'coe', name:'Central centre of excellence', reach:.8, capture:.9, fixed:1.3, cost:.95, ramp:.7,
+  why:'One team owns models, standards and risk. Consistent and defensible; throughput is limited because every business unit queues for the centre. McKinsey finds over half of enterprises run gen AI centrally, and that risk and compliance are usually centralized.'},
+ {k:'hub', name:'Hub and spoke', reach:1.0, capture:1.0, fixed:1.15, cost:1.0, ramp:.85,
+  why:'Centre sets standards and platform; business units deploy. IBM reports centralized or hub-and-spoke models achieve 36% higher ROI than decentralized ones, and Dataiku finds organizations that scale AI are three times more likely to use it. Treated here as the baseline.'},
+ {k:'embed', name:'Embedded in the business', reach:1.15, capture:1.05, fixed:1.0, cost:1.05, ramp:1.0,
+  why:'AI sits inside each function with a thin central layer. Fastest to act and highest reach where the business is mature; fragments standards and duplicates work when it is not.'},
+ {k:'vendor', name:'Vendor-led', reach:.9, capture:.75, fixed:.8, cost:1.2, ramp:.9,
+  why:'Fast to stand up and cheap to build, but the capability and the customer knowledge stay outside. Execution quality and per-contact cost suffer, and the exit is expensive.'}];
+let gov='hub';
+const G=()=>GOV.find(g=>g.k===gov);
+function econ(gk){
+  const g=GOV.find(x=>x.k===gk), root=DATA.roots[sel], t=target();
+  const gain=Math.max(0,t.mean-root.mean);
+  const seg=+$('seg').value||0, reach=(+$('reach').value||0)/100*g.reach, cap=(+$('capture').value||0)/100*g.capture;
+  const margin=+$('margin').value||0, cost=(+$('cost').value||0)*g.cost, fixed=(+$('fixed').value||0)*g.fixed;
+  const contacted=seg*Math.min(reach,1), prods=contacted*gain*Math.min(cap,1)*g.ramp, rev=prods*margin;
+  const spend=contacted*cost+fixed, net=rev-spend;
+  return {g,gain,contacted,prods,rev,spend,net,roi:spend>0?net/spend:0,
+          be:(contacted*gain*margin*g.ramp)>0?(contacted*cost+fixed)/(contacted*gain*margin*g.ramp):NaN};
+}
+function govUI(){
+  $('govchips').innerHTML=GOV.map(g=>`<button class="${g.k===gov?'sel':''}" data-g="${g.k}">${g.name}</button>`).join('');
+  $('govchips').onclick=e=>{const b=e.target.closest('button');if(!b)return;gov=b.dataset.g;log('Governance model: '+G().name);render()};
+  $('govwhy').textContent=G().why;
+  const rows=GOV.map(g=>({g,e:econ(g.k)})).sort((a,b)=>b.e.net-a.e.net);
+  $('govtab').querySelector('tbody').innerHTML=rows.map(({g,e},i)=>`<tr${g.k===gov?' style="background:#eef3fb"':''}>
+    <td>${g.name}${i===0?' <span class="tag">best here</span>':''}</td><td class="num">×${g.reach}</td><td class="num">×${g.capture}</td><td class="num">×${g.fixed}</td>
+    <td class="num" style="color:${e.net>=0?'var(--good)':'var(--warn)'}">${eur(e.net)}</td><td class="num">${e.spend>0?fmt(100*e.roi,0)+'%':'—'}</td></tr>`).join('');
+}
+// ---- optimizer --------------------------------------------------------------
+function solve(){
+  const v=$('solvefor').value, tgtRoi=(+$('target').value)/100, e=econ(gov), g=G();
+  const root=DATA.roots[sel], t=target(), gain=Math.max(0,t.mean-root.mean);
+  const seg=+$('seg').value||0, reach=(+$('reach').value||0)/100*g.reach, cap=(+$('capture').value||0)/100*g.capture;
+  const margin=+$('margin').value||0, cost=(+$('cost').value||0)*g.cost, fixed=(+$('fixed').value||0)*g.fixed, ramp=g.ramp;
+  if(gain<=0){$('solveout').className='banner out';$('solveout').innerHTML='<b>No gain to optimise</b>Choose a journey step with a positive difference first.';return}
+  const perCust=gain*ramp*margin;                       // value per contacted customer at 100% capture
+  let out='', label='', val=NaN, feasible=true;
+  const need=(fixedPart,linearPart)=>(1+tgtRoi)*fixedPart/(linearPart);   // helper for contacted-count solves
+  if(v==='capture'||v==='margin'){
+    const contacted=seg*Math.min(reach,1);
+    const spendFixedPart=contacted*cost+fixed;
+    const needed=(1+tgtRoi)*spendFixedPart;              // required revenue
+    if(v==='capture'){ val=needed/(contacted*gain*ramp*margin)*100; label='share of the observed gain that must be captured'; }
+    else { val=needed/(contacted*gain*ramp*Math.min(cap,1)); label='margin per additional product required'; }
+  } else if(v==='reach'||v==='seg'){
+    const perContact=perCust*Math.min(cap,1)-cost*(1+tgtRoi);
+    if(perContact<=0){feasible=false}
+    else{
+      const contacted=(1+tgtRoi)*fixed/perContact;
+      if(v==='reach'){ val=contacted/Math.max(seg,1)/g.reach*100; label='share of the segment that must be reached'; }
+      else { val=contacted/Math.max(Math.min(reach,1),1e-9); label='customers needed in the segment'; }
+    }
+  } else if(v==='cost'){
+    const contacted=seg*Math.min(reach,1);
+    val=(contacted*perCust*Math.min(cap,1)-(1+tgtRoi)*fixed)/(contacted*(1+tgtRoi))/g.cost;
+    label='most you can spend per customer contacted'; if(val<0)feasible=false;
+  } else if(v==='fixed'){
+    const contacted=seg*Math.min(reach,1);
+    val=(contacted*perCust*Math.min(cap,1)-(1+tgtRoi)*contacted*cost)/(1+tgtRoi)/g.fixed;
+    label='most the programme can cost in its first year'; if(val<0)feasible=false;
+  }
+  const tgtTxt=tgtRoi===0?'break even':`a return of ${fmt(100*tgtRoi,0)}%`;
+  if(!feasible||!isFinite(val)){
+    $('solveout').className='banner out';
+    $('solveout').innerHTML=`<b>Not reachable</b>With these assumptions, no value of this variable reaches ${tgtTxt}: each contacted customer costs more than the value they can return. Change the journey step, the margin, or the contact cost.`;
+  } else {
+    const shown=(v==='capture'||v==='reach')?fmt(val,1)+'%':(v==='seg')?fmt(Math.round(val)):eur(val);
+    const cur=(v==='capture')?+$('capture').value:(v==='reach')?+$('reach').value:(v==='margin')?+$('margin').value:(v==='cost')?+$('cost').value:(v==='fixed')?+$('fixed').value:+$('seg').value;
+    const curTxt=(v==='capture'||v==='reach')?fmt(cur,1)+'%':(v==='seg')?fmt(cur):eur(cur);
+    const ok=(v==='cost'||v==='fixed')?val>=cur:val<=cur;
+    $('solveout').className='banner '+(ok?'ok':'edge');
+    $('solveout').innerHTML=`<b>${shown} — the ${label} for ${tgtTxt}</b>Current assumption: ${curTxt}. `+
+      (ok?'The current assumption already clears it, so the case holds if the assumption survives scrutiny.'
+         :'The current assumption does not clear it, so on these numbers the programme does not reach the target.')+
+      ` Under ${G().name}.`;
+  }
+  log(`Optimiser: solved ${v} for ${tgtTxt} → ${isFinite(val)?fmt(val,1):'not reachable'}`);
+}
+function bestBranch(){
+  const MIN_N=50;   // a branch a handful of customers took is not an opportunity
+  const root=DATA.roots[sel]; let best=null;
+  const walk=(node,path)=>{
+    for(const c of (node.children||[])){
+      if(c.name==='(no further step)'){continue}
+      const p=[...path,c.name];
+      const saved=path.slice(); path.length=0; path.push(...saved);
+      const prev=[...pathGlobalSet(p)];
+      const e=econWithTarget(c,root);
+      if(c.count>=MIN_N && (!best||e.net>best.e.net)) best={c,p,e};
+      if(c.children) walk(c,p);
+    }
+  };
+  const econWithTarget=(c,root)=>{
+    const g=G(), gain=Math.max(0,c.mean-root.mean);
+    const seg=+$('seg').value||0, reach=(+$('reach').value||0)/100*g.reach, cap=(+$('capture').value||0)/100*g.capture;
+    const margin=+$('margin').value||0, cost=(+$('cost').value||0)*g.cost, fixed=(+$('fixed').value||0)*g.fixed;
+    const contacted=seg*Math.min(reach,1), rev=contacted*gain*Math.min(cap,1)*g.ramp*margin, spend=contacted*cost+fixed;
+    return {net:rev-spend,gain};
+  };
+  const pathGlobalSet=p=>p;
+  walk(DATA.roots[sel],[]);
+  if(!best){$('solveout').className='banner';$('solveout').innerHTML='<b>No branch found</b>';return}
+  path=best.p.slice(0,2); render();
+  $('solveout').className='banner ok';
+  $('solveout').innerHTML=`<b>Best journey under ${G().name}: ${best.p.join(' › ')}</b>Gain ${fmt(best.e.gain,2)} products per customer, ${fmt(best.c.count)} customers took it. Net ${eur(best.e.net)} on the current assumptions. Branches with fewer than ${MIN_N} customers were excluded: the largest gains in this data sit on paths a handful of people took, and they are not opportunities.`;
+  log('Optimiser: best journey → '+best.p.join(' › '));
+  animate();
+}
+// ---- session log and printable report ---------------------------------------
+const LOG=[]; const log=s=>{const t=new Date().toLocaleTimeString();if(!LOG.length||LOG[LOG.length-1].s!==s)LOG.push({t,s})};
+const INTERP={
+  seg:'How many customers sit in the state you are targeting. It scales both the benefit and the contact cost, so it moves the total but rarely the decision.',
+  reach:'The share you can actually reach and act on. This is a property of the channel and the operating model, not of the model\'s accuracy, and it is usually the largest single lever.',
+  capture:'The share of the observed difference an intervention actually produces. Customers were not assigned to these journeys, so this is where selection bias is absorbed. It is an assumption until a randomised holdout measures it.',
+  margin:'Annual margin per additional product held. Finance owns this number; using a revenue figure instead of margin is the most common way these cases are inflated.',
+  cost:'Cost per customer contacted. Sets the floor on value per customer: if the value a contacted customer returns is below this, no capture rate can rescue the programme.',
+  fixed:'Build and run cost of the capability in its first year. It determines the break-even, and it is the number an investment committee will test hardest.'
+};
+function report(){
+  const root=DATA.roots[sel], t=target(), e=econ(gov);
+  const rows=GOV.map(g=>({g,e:econ(g.k)})).sort((a,b)=>b.e.net-a.e.net);
+  const cur=id=>$(id).value;
+  const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Customer journey session report</title>
+  <style>body{font:14px/1.55 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#131820;max-width:880px;margin:24px auto;padding:0 18px}
+  h1{font-size:21px;margin-bottom:4px}h2{font-size:15px;margin:22px 0 8px;border-bottom:1px solid #e2e6ec;padding-bottom:4px}
+  table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #e2e6ec;padding:6px 8px;text-align:left}
+  td.num,th.num{text-align:right}.muted{color:#5b6673}.box{background:#f7f8fa;border:1px solid #e2e6ec;border-radius:8px;padding:12px 14px;margin:10px 0}
+  .note{background:#fff8e6;border-color:#f0dfa0}ol{padding-left:18px}@media print{.noprint{display:none}}</style></head><body>
+  <h1>Customer journeys and the return on embedding AI</h1>
+  <div class="muted">Session report · ${new Date().toLocaleString()} · Santander product-holding data, ${fmt(DATA.total_customers)} customers</div>
+  <div class="noprint" style="margin:12px 0"><button onclick="print()">Print or save as PDF</button></div>
+  <h2>1. What was examined</h2>
+  <div class="box">Starting state: <b>${esc(root.name)}</b> (${fmt(root.count)} customers, ${fmt(root.mean,2)} products on average).<br>
+  Journey step costed: <b>${esc(t.name)}</b> — ${fmt(t.count)} customers took it, ending at ${fmt(t.mean,2)} products, a difference of <b>${fmt(e.gain,2)}</b> products per customer.<br>
+  Governance and delivery model: <b>${esc(G().name)}</b>.</div>
+  <h2>2. Assumptions used, and what each one means</h2>
+  <table><tr><th>Variable</th><th class="num">Value</th><th>Interpretation</th></tr>
+  ${[['seg','Customers in the segment',fmt(+cur('seg'))],['reach','Share reached',cur('reach')+'%'],['capture','Share of the gain captured',cur('capture')+'%'],
+     ['margin','Margin per additional product',eur(+cur('margin'))],['cost','Cost per customer contacted',eur(+cur('cost'))],['fixed','Programme cost, first year',eur(+cur('fixed'))]]
+     .map(([k,lab,val])=>`<tr><td>${lab}</td><td class="num">${val}</td><td class="muted">${esc(INTERP[k])}</td></tr>`).join('')}
+  </table>
+  <p class="muted">The governance model adjusts these: reach ×${G().reach}, capture ×${G().capture}, programme cost ×${G().fixed}, contact cost ×${G().cost}, and ${fmt(100*G().ramp,0)}% of the first year is productive after set-up.</p>
+  <h2>3. Result on these assumptions</h2>
+  <table>
+  <tr><td>Customers contacted</td><td class="num">${fmt(Math.round(e.contacted))}</td></tr>
+  <tr><td>Additional products, captured</td><td class="num">${fmt(Math.round(e.prods))}</td></tr>
+  <tr><td>Gross margin</td><td class="num">${eur(e.rev)}</td></tr>
+  <tr><td>Contact cost and programme cost</td><td class="num">${eur(e.spend)}</td></tr>
+  <tr><td><b>Net, first year</b></td><td class="num"><b>${eur(e.net)}</b></td></tr>
+  <tr><td><b>Return on spend</b></td><td class="num"><b>${e.spend>0?fmt(100*e.roi,0)+'%':'—'}</b></td></tr>
+  <tr><td>Break-even capture rate</td><td class="num">${isFinite(e.be)?fmt(100*e.be,1)+'% of the observed difference':'—'}</td></tr></table>
+  <h2>4. Governance models compared</h2>
+  <table><tr><th>Model</th><th class="num">Net</th><th class="num">Return</th><th>Why it differs</th></tr>
+  ${rows.map(({g,e:ee})=>`<tr><td>${esc(g.name)}</td><td class="num">${eur(ee.net)}</td><td class="num">${ee.spend>0?fmt(100*ee.roi,0)+'%':'—'}</td><td class="muted">${esc(g.why)}</td></tr>`).join('')}</table>
+  <h2>5. What was done in this session</h2>
+  <ol>${LOG.map(l=>`<li><span class="muted">${l.t}</span> — ${esc(l.s)}</li>`).join('')||'<li class="muted">No changes recorded.</li>'}</ol>
+  <h2>6. Summary</h2>
+  <div class="box">On the journey examined, the observed difference is ${fmt(e.gain,2)} products per customer. Under ${esc(G().name)}, reaching ${fmt(Math.round(e.contacted))} customers and capturing ${cur('capture')}% of that difference returns ${eur(e.net)} in the first year, a return of ${e.spend>0?fmt(100*e.roi,0)+'%':'—'}.
+  The programme breaks even if it captures <b>${isFinite(e.be)?fmt(100*e.be,1)+'%':'—'}</b> of the observed difference. ${rows[0].g.k===gov?'The chosen governance model is also the best of the five on these assumptions.':'A different governance model, '+esc(rows[0].g.name)+', would return '+eur(rows[0].e.net)+' on the same assumptions.'}</div>
+  <div class="box note"><b>What this report is not.</b> Customers chose their journeys; they were not assigned to them. The differences here are associations, so the capture rate is an assumption and the break-even is the number to test. The next step is a randomised holdout in the selected segment, large enough to measure whether the intervention beats the break-even rate.</div>
+  <div class="muted" style="margin-top:20px">Data: Santander product-recommendation records, 2015-01 to 2016-05. Teaching demonstration, not a business case.</div>
+  </body></html>`;
+  const w=window.open('','_blank');
+  if(w){w.document.write(html);w.document.close()}
+  else{const b=new Blob([html],{type:'text/html'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='journey_session_report.html';a.click()}
+  log('Opened the session report');
+}
+$('solve').onclick=solve; $('bestbranch').onclick=bestBranch; $('report').onclick=report;
+for(const id of ['seg','reach','capture','margin','cost','fixed'])
+  $(id).addEventListener('input',e=>{if(id==='seg')e.target.dataset.touched=1;log('Set '+id+' = '+e.target.value);roi()});
+render(); animate();
+</script></body></html>
